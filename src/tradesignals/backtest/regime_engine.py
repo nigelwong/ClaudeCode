@@ -5,13 +5,10 @@ import pandas as pd
 
 from tradesignals.backtest.costs import TransactionCosts
 from tradesignals.backtest.engine import Trade
-from tradesignals.data.fred_client import MACRO_SERIES
-from tradesignals.regime.breadth import compute_breadth
-from tradesignals.regime.composite import compute_market_outlook
-from tradesignals.regime.risk_tilt import RiskTilt, classify_risk_tilt
-from tradesignals.regime.sector_rank import SectorTier, rank_sectors
-from tradesignals.regime.trend import TrendRegime, classify_trend
-from tradesignals.regime.volatility import classify_volatility
+from tradesignals.regime.outlook import compute_outlook
+from tradesignals.regime.risk_tilt import RiskTilt
+from tradesignals.regime.sector_rank import SectorTier
+from tradesignals.regime.trend import TrendRegime
 
 CASH = "CASH"
 
@@ -190,36 +187,29 @@ def run_regime_backtest(
             bars_to_date = bars[bars["date"] <= current_ts]
             macro_to_date = macro[macro["date"] <= current_ts]
 
-            def _macro_slice(role: str) -> pd.DataFrame:
-                series_id = MACRO_SERIES[role]
-                return macro_to_date.loc[macro_to_date["series_id"] == series_id, ["date", "value"]]
-
-            benchmark_bars = bars_to_date.loc[bars_to_date["ticker"] == benchmark_ticker, ["date", "close"]]
-            trend = classify_trend(benchmark_bars)
-            breadth = compute_breadth(bars_to_date, breadth_tickers)
-            volatility, vol_details = classify_volatility(
-                _macro_slice("vix"), _macro_slice("yield_curve"), _macro_slice("credit_spread")
-            )
-            sector_tiers = rank_sectors(bars_to_date, sector_tickers, benchmark_ticker)
-            risk_tilt = classify_risk_tilt(bars_to_date, benchmark_ticker, bonds_ticker, gold_ticker)
-
-            outlook = compute_market_outlook(
-                as_of_date=current_ts.date(),
-                trend=trend,
-                breadth=breadth,
-                volatility=volatility,
-                yield_curve_inverted=bool(vol_details.get("yield_curve_inverted", False)),
-                risk_tilt=risk_tilt,
-                sector_tiers=sector_tiers,
+            outlook = compute_outlook(
+                bars_to_date,
+                macro_to_date,
+                benchmark_ticker,
+                breadth_tickers,
+                sector_tickers,
+                bonds_ticker,
+                gold_ticker,
+                current_ts.date(),
             )
             target_weights = _target_weights(
-                outlook.overall_regime, risk_tilt, sector_tiers, bonds_ticker, gold_ticker, equity_exposure_by_regime
+                outlook.overall_regime,
+                outlook.risk_tilt,
+                outlook.sector_tiers,
+                bonds_ticker,
+                gold_ticker,
+                equity_exposure_by_regime,
             )
             rebalances.append(
                 Rebalance(
                     date=current_ts.date(),
                     overall_regime=outlook.overall_regime,
-                    risk_tilt=risk_tilt,
+                    risk_tilt=outlook.risk_tilt,
                     target_weights=target_weights,
                 )
             )
