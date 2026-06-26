@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local data cache (daily pipeline never depends on this being present)
+data/*.db
+data/raw/
+
+.env

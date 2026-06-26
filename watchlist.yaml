@@ -1,0 +1,36 @@
+# Watchlist of US equity tickers tracked by the daily pipeline and used for
+# historical backtesting.
+#
+# KNOWN LIMITATION (survivorship bias): this is a list of *currently active*
+# tickers. Backtesting strategies over a long historical window against a
+# list chosen from today's survivors silently excludes companies that were
+# delisted, acquired, or went bankrupt during that window, which inflates
+# historical returns relative to what a trader living through that period
+# would have actually experienced. A more rigorous future version would use
+# a point-in-time index constituent list instead of a single static list.
+# Keep this list small (~20-50 names) since the 13F/Form 4 CUSIP mapping in
+# data/cusip_map.yaml must be maintained manually per ticker.
+tickers:
+  - AAPL
+  - MSFT
+  - NVDA
+  - AMZN
+  - GOOGL
+  - META
+  - AVGO
+  - TSLA
+  - JPM
+  - V
+  - UNH
+  - XOM
+  - WMT
+  - MA
+  - COST
+  - HD
+  - PG
+  - JNJ
+  - CRM
+  - ADBE
+
+# Benchmark used for backtest comparisons.
+benchmark: SPY
