@@ -16,6 +16,8 @@ from tradesignals.data.bar_cache import get_bars_cached, trailing_window
 from tradesignals.data.edgar_client import EdgarClient
 from tradesignals.data.form4 import fetch_insider_transactions
 from tradesignals.data.form13f import fetch_institutional_holdings
+from tradesignals.data.fred_client import MACRO_SERIES, FredClient
+from tradesignals.data.macro_cache import get_macro_series_cached
 from tradesignals.db import repository
 from tradesignals.db.connection import get_connection
 from tradesignals.reports.backtest_report import render_backtest_markdown, render_sweep_markdown
@@ -73,12 +75,13 @@ def backfill_data(
     start: str = typer.Option(..., help="YYYY-MM-DD"),
     end: str = typer.Option(None, help="YYYY-MM-DD, defaults to today"),
 ) -> None:
-    """One-off historical backfill of bars + SEC filings into the local SQLite cache."""
+    """One-off historical backfill of bars + SEC filings + FRED macro series
+    into the local SQLite cache."""
     settings = get_settings()
     watchlist = get_watchlist()
     start_date = date.fromisoformat(start)
     end_date = date.fromisoformat(end) if end else date.today()
-    tickers = [*watchlist.tickers, watchlist.benchmark]
+    tickers = [*watchlist.tickers, watchlist.benchmark, *watchlist.cross_asset.tickers]
 
     bar_client = AlpacaBarClient(settings)
     edgar_client = EdgarClient(settings)
@@ -97,6 +100,11 @@ def backfill_data(
         typer.echo("Fetching institutional holdings (13F)...")
         holdings = fetch_institutional_holdings(edgar_client, cusip_to_ticker)
         repository.upsert_institutional_holdings(conn, [h.model_dump(mode="json") for h in holdings])
+
+        typer.echo("Fetching FRED macro series (VIX, yield curve, credit spread)...")
+        fred_client = FredClient(settings)
+        for series_id in MACRO_SERIES.values():
+            get_macro_series_cached(conn, fred_client, series_id, start_date, end_date)
 
     typer.echo("Backfill complete.")
 
