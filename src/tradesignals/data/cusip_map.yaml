@@ -1,0 +1,33 @@
+# Manually maintained CUSIP -> ticker mapping, scoped to watchlist.yaml.
+#
+# Why this exists: 13F infotables report holdings by CUSIP, and CUSIP is a
+# paid identifier owned by CUSIP Global Services / ABA -- there is no free
+# official CUSIP<->ticker mapping at market scale. For a small, fixed
+# watchlist (~20-50 names) a static table is tractable instead.
+#
+# IMPORTANT: verify/refresh these periodically against an authoritative
+# source (e.g. any real 13F infotable.xml that includes the issuer, which
+# lists nameOfIssuer next to cusip) before relying on them -- a stale or
+# incorrect entry just means that ticker's institutional-holdings signal
+# silently goes inactive, not that data is wrong, but it should still be
+# kept current when tickers are added to or removed from watchlist.yaml.
+AAPL: "037833100"
+MSFT: "594918104"
+NVDA: "67066G104"
+AMZN: "023135106"
+GOOGL: "02079K305"
+META: "30303M102"
+AVGO: "11135F101"
+TSLA: "88160R101"
+JPM: "46625H100"
+V: "92826C839"
+UNH: "91324P102"
+XOM: "30231G102"
+WMT: "931142103"
+MA: "57636Q104"
+COST: "22160K105"
+HD: "437076102"
+PG: "742718109"
+JNJ: "478160104"
+CRM: "79466L302"
+ADBE: "00724F101"
