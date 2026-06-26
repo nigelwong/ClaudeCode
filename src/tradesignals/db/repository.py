@@ -50,6 +50,48 @@ def get_existing_date_range(conn: sqlite3.Connection, ticker: str) -> tuple[str 
     return (row[0], row[1]) if row else (None, None)
 
 
+def upsert_macro_series(conn: sqlite3.Connection, series: pd.DataFrame) -> None:
+    """series columns: series_id, date, value. date may be a date/Timestamp
+    or ISO string; normalized to ISO string."""
+    if series.empty:
+        return
+    rows = series.copy()
+    rows["date"] = pd.to_datetime(rows["date"]).dt.strftime("%Y-%m-%d")
+    conn.executemany(
+        """
+        INSERT INTO macro_series (series_id, date, value)
+        VALUES (:series_id, :date, :value)
+        ON CONFLICT (series_id, date) DO UPDATE SET value=excluded.value
+        """,
+        rows[["series_id", "date", "value"]].to_dict("records"),
+    )
+
+
+def get_macro_series(
+    conn: sqlite3.Connection, series_id: str, start: date | None = None, end: date | None = None
+) -> pd.DataFrame:
+    query = "SELECT * FROM macro_series WHERE series_id = ?"
+    params: list = [series_id]
+    if start is not None:
+        query += " AND date >= ?"
+        params.append(start.isoformat())
+    if end is not None:
+        query += " AND date <= ?"
+        params.append(end.isoformat())
+    query += " ORDER BY date"
+    df = pd.read_sql_query(query, conn, params=params)
+    if not df.empty:
+        df["date"] = pd.to_datetime(df["date"])
+    return df
+
+
+def get_existing_macro_date_range(conn: sqlite3.Connection, series_id: str) -> tuple[str | None, str | None]:
+    row = conn.execute(
+        "SELECT MIN(date), MAX(date) FROM macro_series WHERE series_id = ?", (series_id,)
+    ).fetchone()
+    return (row[0], row[1]) if row else (None, None)
+
+
 def upsert_institutional_holdings(conn: sqlite3.Connection, rows: list[dict]) -> None:
     if not rows:
         return

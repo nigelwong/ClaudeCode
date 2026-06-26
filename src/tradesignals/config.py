@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     alpaca_api_key: str = ""
     alpaca_secret_key: str = ""
     sec_edgar_user_agent: str = ""
+    fred_api_key: str = ""
     tradesignals_db_path: str = "data/tradesignals.db"
 
     @property
@@ -22,9 +23,20 @@ class Settings(BaseSettings):
         return path if path.is_absolute() else REPO_ROOT / path
 
 
+class CrossAssetConfig(BaseModel):
+    sectors: dict[str, str]  # ticker -> sector display name
+    bonds: str
+    gold: str
+
+    @property
+    def tickers(self) -> list[str]:
+        return [*self.sectors.keys(), self.bonds, self.gold]
+
+
 class Watchlist(BaseModel):
     tickers: list[str]
     benchmark: str
+    cross_asset: CrossAssetConfig
 
 
 @lru_cache

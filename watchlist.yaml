@@ -34,3 +34,23 @@ tickers:
 
 # Benchmark used for backtest comparisons.
 benchmark: SPY
+
+# Cross-asset universe for the market-outlook (regime + sector rotation)
+# layer. Sectors are the 11 SPDR sector ETFs, used to rank relative
+# strength against `benchmark` above. `bonds`/`gold` are the safe-bucket
+# assets used when the risk_tilt signal reads RISK_OFF.
+cross_asset:
+  sectors:
+    XLK: Technology
+    XLF: Financials
+    XLE: Energy
+    XLV: Health Care
+    XLI: Industrials
+    XLY: Consumer Discretionary
+    XLP: Consumer Staples
+    XLU: Utilities
+    XLB: Materials
+    XLRE: Real Estate
+    XLC: Communication Services
+  bonds: TLT
+  gold: GLD

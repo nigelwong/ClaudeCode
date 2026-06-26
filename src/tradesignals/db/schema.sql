@@ -76,6 +76,17 @@ CREATE TABLE IF NOT EXISTS backtest_trades (
     pnl_pct REAL
 );
 
+-- FRED macro series (VIX, yield curve, credit spreads, ...) for the
+-- market-outlook layer. Unlike the SEC tables, FRED publishes same-day
+-- with no restatement window, so `date` alone is both the fact date and
+-- the availability date -- no separate filed_date column is needed.
+CREATE TABLE IF NOT EXISTS macro_series (
+    series_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    value REAL NOT NULL,
+    PRIMARY KEY (series_id, date)
+);
+
 CREATE TABLE IF NOT EXISTS backtest_metrics (
     run_id TEXT PRIMARY KEY REFERENCES backtest_runs (run_id),
     total_return REAL NOT NULL,
