@@ -29,6 +29,14 @@ jobs:
           SEC_EDGAR_USER_AGENT: ${{ secrets.SEC_EDGAR_USER_AGENT }}
         run: tradesignals run-daily
 
+      - name: Run market outlook pipeline
+        continue-on-error: true  # a FRED outage must never block the run-daily report's commit
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: tradesignals market-outlook
+
       - name: Commit report if changed
         run: |
           git config user.name "github-actions[bot]"

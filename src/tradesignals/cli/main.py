@@ -9,6 +9,11 @@ from tradesignals.backtest.benchmark import benchmark_metrics
 from tradesignals.backtest.costs import TransactionCosts
 from tradesignals.backtest.engine import run_backtest
 from tradesignals.backtest.metrics import compute_metrics
+from tradesignals.backtest.regime_engine import (
+    DEFAULT_REBALANCE_EVERY_N_DAYS,
+    DEFAULT_REBALANCE_THRESHOLD_PCT,
+    run_regime_backtest,
+)
 from tradesignals.backtest.sweep import sweep as run_sweep
 from tradesignals.config import REPO_ROOT, get_settings, get_watchlist
 from tradesignals.data.alpaca_client import AlpacaBarClient
@@ -20,8 +25,11 @@ from tradesignals.data.fred_client import MACRO_SERIES, FredClient
 from tradesignals.data.macro_cache import get_macro_series_cached
 from tradesignals.db import repository
 from tradesignals.db.connection import get_connection
+from tradesignals.regime.outlook import compute_outlook
 from tradesignals.reports.backtest_report import render_backtest_markdown, render_sweep_markdown
 from tradesignals.reports.daily_report import write_report
+from tradesignals.reports.outlook_report import write_report as write_outlook_report
+from tradesignals.reports.regime_backtest_report import render_regime_backtest_markdown
 from tradesignals.signals.base import FundamentalData
 from tradesignals.signals.composite import generate_composite_signals
 from tradesignals.signals.registry import build_strategy
@@ -244,6 +252,108 @@ def run_daily(
 
     md_path, json_path = write_report(as_of_date, signals, output_dir)
     typer.echo(f"Wrote {md_path} and {json_path}")
+
+
+@app.command("market-outlook")
+def market_outlook(
+    as_of: str = typer.Option(None, "--as-of", help="YYYY-MM-DD, defaults to today"),
+    lookback_days: int = 400,  # comfortably covers trend.py's 200dma + rising-window requirement
+    output_dir: Path = typer.Option(REPO_ROOT / "reports", "--output-dir"),
+) -> None:
+    """Fetches a fresh trailing window directly from Alpaca/FRED -- no
+    persisted DB dependency (CLAUDE.md invariant #3) -- and writes today's
+    market regime + sector rotation report."""
+    settings = get_settings()
+    watchlist = get_watchlist()
+    as_of_date = date.fromisoformat(as_of) if as_of else date.today()
+    window_start, window_end = trailing_window(as_of_date, lookback_days)
+
+    sector_tickers = list(watchlist.cross_asset.sectors.keys())
+    all_tickers = sorted({*watchlist.tickers, watchlist.benchmark, *watchlist.cross_asset.tickers})
+
+    bar_client = AlpacaBarClient(settings)
+    bars = bar_client.fetch_daily_bars(all_tickers, window_start, window_end)
+    if bars.empty:
+        typer.echo("No bars returned from Alpaca -- aborting.", err=True)
+        raise typer.Exit(1)
+
+    fred_client = FredClient(settings)
+    macro_series = pd.concat(
+        [fred_client.fetch_series(series_id, window_start, window_end) for series_id in MACRO_SERIES.values()],
+        ignore_index=True,
+    )
+
+    outlook = compute_outlook(
+        bars,
+        macro_series,
+        watchlist.benchmark,
+        watchlist.tickers,
+        sector_tickers,
+        watchlist.cross_asset.bonds,
+        watchlist.cross_asset.gold,
+        as_of_date,
+    )
+
+    md_path, json_path = write_outlook_report(outlook, output_dir)
+    typer.echo(f"Wrote {md_path} and {json_path}")
+
+
+@app.command("backtest-regime")
+def backtest_regime(
+    start: str = typer.Option(..., help="YYYY-MM-DD"),
+    end: str = typer.Option(..., help="YYYY-MM-DD"),
+    rebalance_every_n_days: int = DEFAULT_REBALANCE_EVERY_N_DAYS,
+    rebalance_threshold_pct: float = DEFAULT_REBALANCE_THRESHOLD_PCT,
+    slippage_bps: float = 5.0,
+    commission_per_fill: float = 0.0,
+    initial_capital: float = 100_000.0,
+    output_dir: Path = typer.Option(REPO_ROOT / "reports", "--output-dir"),
+) -> None:
+    """Reads cached bars + FRED macro series from SQLite (populated by
+    `backfill-data`) and runs the portfolio-level regime backtest."""
+    settings = get_settings()
+    watchlist = get_watchlist()
+    start_date, end_date = date.fromisoformat(start), date.fromisoformat(end)
+    sector_tickers = list(watchlist.cross_asset.sectors.keys())
+    all_tickers = sorted({*watchlist.tickers, watchlist.benchmark, *watchlist.cross_asset.tickers})
+    costs = TransactionCosts(slippage_bps=slippage_bps, commission_per_fill=commission_per_fill)
+
+    with get_connection(settings.db_path) as conn:
+        bars = repository.get_bars(conn, all_tickers)
+        macro_series = pd.concat(
+            [repository.get_macro_series(conn, series_id) for series_id in MACRO_SERIES.values()],
+            ignore_index=True,
+        )
+        benchmark_bars = repository.get_bars(conn, [watchlist.benchmark], start_date, end_date)
+
+    if bars.empty:
+        typer.echo("No cached bars found -- run `tradesignals backfill-data` first.", err=True)
+        raise typer.Exit(1)
+
+    result = run_regime_backtest(
+        bars=bars,
+        macro_series=macro_series,
+        benchmark_ticker=watchlist.benchmark,
+        breadth_tickers=watchlist.tickers,
+        sector_tickers=sector_tickers,
+        bonds_ticker=watchlist.cross_asset.bonds,
+        gold_ticker=watchlist.cross_asset.gold,
+        start=start_date,
+        end=end_date,
+        rebalance_every_n_days=rebalance_every_n_days,
+        rebalance_threshold_pct=rebalance_threshold_pct,
+        initial_capital=initial_capital,
+        costs=costs,
+    )
+    metrics = compute_metrics(result.equity_curve, [t.pnl for t in result.trades])
+    bench = benchmark_metrics(benchmark_bars) if not benchmark_bars.empty else None
+
+    report_md = render_regime_backtest_markdown(start_date, end_date, result, metrics, bench)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    report_path = output_dir / f"regime-backtest-{start_date}-{end_date}.md"
+    report_path.write_text(report_md)
+    typer.echo(report_md)
+    typer.echo(f"Report written to {report_path}")
 
 
 if __name__ == "__main__":
