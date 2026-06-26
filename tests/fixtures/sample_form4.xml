@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<ownershipDocument>
+    <reportingOwner>
+        <reportingOwnerId>
+            <rptOwnerCik>0001234567</rptOwnerCik>
+            <rptOwnerName>Jane Q. Doe</rptOwnerName>
+        </reportingOwnerId>
+        <reportingOwnerRelationship>
+            <isOfficer>1</isOfficer>
+            <officerTitle>Chief Financial Officer</officerTitle>
+        </reportingOwnerRelationship>
+    </reportingOwner>
+    <nonDerivativeTable>
+        <nonDerivativeTransaction>
+            <transactionDate>
+                <value>2024-02-10</value>
+            </transactionDate>
+            <transactionCoding>
+                <transactionCode>P</transactionCode>
+            </transactionCoding>
+            <transactionAmounts>
+                <transactionShares>
+                    <value>1000</value>
+                </transactionShares>
+                <transactionPricePerShare>
+                    <value>150.25</value>
+                </transactionPricePerShare>
+            </transactionAmounts>
+            <postTransactionAmounts>
+                <sharesOwnedFollowingTransaction>
+                    <value>5000</value>
+                </sharesOwnedFollowingTransaction>
+            </postTransactionAmounts>
+        </nonDerivativeTransaction>
+        <nonDerivativeTransaction>
+            <transactionDate>
+                <value>2024-02-11</value>
+            </transactionDate>
+            <transactionCoding>
+                <transactionCode>S</transactionCode>
+            </transactionCoding>
+            <transactionAmounts>
+                <transactionShares>
+                    <value>200</value>
+                </transactionShares>
+                <transactionPricePerShare>
+                    <value>151.00</value>
+                </transactionPricePerShare>
+            </transactionAmounts>
+            <postTransactionAmounts>
+                <sharesOwnedFollowingTransaction>
+                    <value>4800</value>
+                </sharesOwnedFollowingTransaction>
+            </postTransactionAmounts>
+        </nonDerivativeTransaction>
+    </nonDerivativeTable>
+</ownershipDocument>
